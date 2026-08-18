@@ -261,7 +261,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v1.9 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v2.0 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -2747,117 +2747,253 @@ function filtrarCargosCand(){
   if(!cargos.find(function(c){ return c.nome===atual; })) sel.value = '';
 }
 
+
+/* ===== HIERARQUIA DE CARGOS ===== */
+const HIERARQUIA = {
+  // GOVERNANÇA
+  'Governanta':              { setor:'Governança',   nivel:1, grupo:null },
+  'Supervisora de Andares':  { setor:'Governança',   nivel:2, grupo:null },
+  'Camareira':               { setor:'Governança',   nivel:3, grupo:null },
+  'Aux. de Limpeza':         { setor:'Governança',   nivel:3, grupo:null },
+
+  // RECEPÇÃO
+  'Supervisor de Recepção':  { setor:'Recepção',     nivel:1, grupo:null },
+  'Recepcionista Sênior':    { setor:'Recepção',     nivel:2, grupo:null },
+  'Recepcionista Pleno':     { setor:'Recepção',     nivel:2, grupo:null },
+  'Guest':                   { setor:'Recepção',     nivel:3, grupo:null },
+  'Mensageiro/Manobrista':   { setor:'Recepção',     nivel:3, grupo:null },
+
+  // A&B — dois setores, uma hierarquia unificada
+  'Gerente de A&B':          { setor:'A&B',          nivel:1, grupo:null },
+  'Supervisor de A&B':       { setor:'A&B',          nivel:2, grupo:null },
+  'Maître':                  { setor:'A&B',          nivel:3, grupo:'salao' },
+  'Chefe de Cozinha':        { setor:'A&B',          nivel:3, grupo:'cozinha' },
+  'Chefe de Fila':           { setor:'A&B',          nivel:4, grupo:'salao' },
+  'SubChefe de Cozinha':     { setor:'A&B',          nivel:4, grupo:'cozinha' },
+  'Garçom':                  { setor:'A&B',          nivel:5, grupo:'salao' },
+  'Cozinheiro/Confeiteiro':  { setor:'A&B',          nivel:5, grupo:'cozinha' },
+  'Aux. de Cozinha':         { setor:'A&B',          nivel:5, grupo:'cozinha' },
+
+  // MANUTENÇÃO
+  'Supervisor de Manutenção':{ setor:'Manutenção',   nivel:1, grupo:null },
+  'Manutencionista Sênior':  { setor:'Manutenção',   nivel:2, grupo:null },
+  'Manutencionista Pleno':   { setor:'Manutenção',   nivel:2, grupo:null },
+
+  // ADMINISTRATIVO — sem hierarquia rígida
+  'Analista Sênior':         { setor:'Administrativo', nivel:1, grupo:null },
+  'Analista Pleno':          { setor:'Administrativo', nivel:2, grupo:null },
+  'Analista':                { setor:'Administrativo', nivel:2, grupo:null },
+  'Assistente':              { setor:'Administrativo', nivel:3, grupo:null },
+  'Estagiário':              { setor:'Administrativo', nivel:3, grupo:null },
+  'Menor Aprendiz':          { setor:'Administrativo', nivel:3, grupo:null }
+};
+
+function nivelCargo(cargo){
+  var h = HIERARQUIA[cargo];
+  return h ? h.nivel : 99;
+}
+function grupoCargo(cargo){
+  var h = HIERARQUIA[cargo];
+  return h ? h.grupo : null;
+}
+
 /* ===== ORGANOGRAMA ===== */
 function renderOrganograma(){
-  const setores = gSetores();
-  const colabs = gD('colabs').filter(function(c){ return c.status !== 'desligado'; });
-  const setorFiltro = document.getElementById('org-setor').value;
+  var setores = gSetores();
+  var colabs = gD('colabs').filter(function(c){ return c.status !== 'desligado'; });
+  var setorFiltro = document.getElementById('org-setor').value;
+  var cfg = gCfg();
 
-  // Popular select de setor
-  const sel = document.getElementById('org-setor');
+  // Popular select
+  var sel = document.getElementById('org-setor');
   if(sel.options.length <= 1){
     setores.forEach(function(s){
       var o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o);
     });
   }
 
-  const cfg = gCfg();
-  const container = document.getElementById('org-container');
+  var container = document.getElementById('org-container');
+  var gmNome = cfg.gm || 'Gerente Geral';
 
-  // Encontrar GM (do config)
-  const gmNome = cfg.gm || 'Gerente Geral';
-  const gmHotel = cfg.hotel || 'Laghetto Pedras Altas';
+  // Encontrar GM cadastrado como colaborador
+  var gmColab = colabs.find(function(c){
+    return c.cargo && (c.cargo.toLowerCase().includes('gerente geral') || c.cargo.toLowerCase() === 'gm');
+  });
+  var gmExibir = gmColab ? gmColab.nome.split(' ').slice(0,2).join(' ') : gmNome;
+  var gmCargo = gmColab ? gmColab.cargo : 'Gerente Geral';
 
   var html = '<div class="org-tree">';
 
-  // Nível 1: GM — puxado das configurações (nome do GM e hotel)
-  // Verifica se há colaborador com cargo de Gerente Geral cadastrado
-  var gmColab = colabs.find(function(c){
-    return c.cargo && (c.cargo.toLowerCase().includes('gerente geral') || c.cargo.toLowerCase().includes('gm'));
-  });
-  var gmExibir = gmColab ? gmColab.nome : gmNome;
-  var gmCargo = gmColab ? gmColab.cargo : 'Gerente Geral';
-
-  html += '<div class="org-level">'
-    +'<div class="org-card gm">'
+  // GM no topo
+  html += '<div style="display:flex;justify-content:center;margin-bottom:0">'
+    +'<div class="org-card gm" style="min-width:160px">'
     +'<div class="org-card-nome">'+gmExibir+'</div>'
     +'<div class="org-card-cargo">'+gmCargo+'</div>'
-    +'</div>'
-    +'</div>';
-
+    +'</div></div>';
   html += '<div class="org-connector"><div class="org-connector-line"></div></div>';
 
-  // Filtrar setores
-  var setoresFiltrados = setorFiltro ? [setorFiltro] : setores;
+  // Setores a mostrar
+  var setoresMostrar = setorFiltro
+    ? (setorFiltro.startsWith('A&B') ? ['A&B Salão','A&B Cozinha'] : [setorFiltro])
+    : setores;
 
-  // Para cada setor: líderes + operacionais (excluindo GM)
-  var blocos = setoresFiltrados.map(function(setor){
-    var lideres = colabs.filter(function(c){
-      return c.setor === setor && c.lider === 'sim' &&
-        !(c.cargo && (c.cargo.toLowerCase().includes('gerente geral') || c.cargo.toLowerCase().includes('gm')));
+  // Agrupar A&B Salão e A&B Cozinha juntos
+  var blocoAB = null;
+  var outrosBlocos = [];
+
+  setoresMostrar.forEach(function(setor){
+    var membros = colabs.filter(function(c){
+      return (c.setor === setor) &&
+        !(c.cargo && (c.cargo.toLowerCase().includes('gerente geral') || c.cargo.toLowerCase() === 'gm'));
     });
-    var ops = colabs.filter(function(c){
-      return c.setor === setor && c.lider !== 'sim' &&
-        !(c.cargo && (c.cargo.toLowerCase().includes('gerente geral') || c.cargo.toLowerCase().includes('gm')));
-    });
-    if(!lideres.length && !ops.length) return null;
+    if(!membros.length) return;
 
-    var b = '<div class="org-setor-bloco">';
-    b += '<div class="org-setor-titulo">'+setor+'</div>';
-
-    // Líderes
-    if(lideres.length){
-      b += '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">';
-      lideres.forEach(function(l){
-        b += '<div class="org-col">'
-          +'<div class="org-card lider">'
-          +'<div class="org-card-nome">'+l.nome.split(' ')[0]+(l.nome.split(' ')[1]?' '+l.nome.split(' ')[1]:'')+'</div>'
-          +'<div class="org-card-cargo">'+(l.cargo||'Líder')+'</div>'
-          +'</div>';
-
-        // Operacionais sob este líder (mesmo setor)
-        if(ops.length){
-          b += '<div class="org-col-line"></div>';
-          b += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">';
-          ops.forEach(function(o){
-            b += '<div class="org-card op">'
-              +'<div class="org-card-nome">'+o.nome.split(' ')[0]+'</div>'
-              +'<div class="org-card-cargo">'+(o.cargo||'Colaborador')+'</div>'
-              +'</div>';
-          });
-          b += '</div>';
-          ops = []; // Mostrou os ops uma vez
-        }
-        b += '</div>';
-      });
-      b += '</div>';
-    } else if(ops.length){
-      // Sem líder — mostrar ops diretamente
-      b += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">';
-      ops.forEach(function(o){
-        b += '<div class="org-card op">'
-          +'<div class="org-card-nome">'+o.nome.split(' ')[0]+'</div>'
-          +'<div class="org-card-cargo">'+(o.cargo||'Colaborador')+'</div>'
-          +'</div>';
-      });
-      b += '</div>';
+    if(setor === 'A&B Salão' || setor === 'A&B Cozinha'){
+      if(!blocoAB) blocoAB = { tipo:'ab', membros:[] };
+      blocoAB.membros = blocoAB.membros.concat(membros);
+    } else {
+      outrosBlocos.push({ setor:setor, membros:membros });
     }
+  });
 
-    b += '</div>';
-    return b;
-  }).filter(Boolean);
+  if(blocoAB) outrosBlocos.push(blocoAB);
 
-  if(blocos.length){
-    html += '<div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;align-items:flex-start;padding:8px 0">';
-    html += blocos.join('');
-    html += '</div>';
-  } else {
-    html += '<div style="text-align:center;padding:40px;color:var(--text3)">Nenhum colaborador cadastrado. Adicione colaboradores para visualizar o organograma.</div>';
-  }
+  html += '<div style="display:flex;gap:32px;flex-wrap:wrap;justify-content:center;align-items:flex-start;padding:8px 16px">';
 
-  html += '</div>';
+  outrosBlocos.forEach(function(bloco){
+    if(bloco.tipo === 'ab'){
+      html += renderBlocoAB(bloco.membros);
+    } else {
+      html += renderBlocoSetor(bloco.setor, bloco.membros);
+    }
+  });
+
+  html += '</div></div>';
   container.innerHTML = html;
 }
+
+function cardOrg(c, classe){
+  var nome = c.nome.split(' ');
+  var nomeExib = nome[0] + (nome[1] ? ' '+nome[1] : '');
+  return '<div class="org-card '+classe+'">'
+    +'<div class="org-card-nome">'+nomeExib+'</div>'
+    +'<div class="org-card-cargo">'+(c.cargo||'—')+'</div>'
+    +'</div>';
+}
+
+function renderBlocoSetor(setor, membros){
+  // Ordenar por nível hierárquico
+  membros.sort(function(a,b){ return nivelCargo(a.cargo) - nivelCargo(b.cargo); });
+
+  // Agrupar por nível
+  var niveis = {};
+  membros.forEach(function(m){
+    var n = nivelCargo(m.cargo);
+    if(!niveis[n]) niveis[n] = [];
+    niveis[n].push(m);
+  });
+
+  var nivOrdenados = Object.keys(niveis).map(Number).sort(function(a,b){return a-b;});
+
+  var html = '<div class="org-setor-bloco">';
+  html += '<div class="org-setor-titulo">'+setor+'</div>';
+
+  // Linha de conexão do topo
+  html += '<div class="org-col-line"></div>';
+
+  nivOrdenados.forEach(function(niv, idx){
+    var grupo = niveis[niv];
+    html += '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">';
+    grupo.forEach(function(m){
+      var cls = niv === 1 ? 'lider' : niv === 2 ? 'sub' : 'op';
+      html += cardOrg(m, cls);
+    });
+    html += '</div>';
+    if(idx < nivOrdenados.length - 1){
+      html += '<div class="org-col-line"></div>';
+    }
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function renderBlocoAB(membros){
+  // Separar por cargo/nível
+  var gerente = membros.filter(function(m){ return nivelCargo(m.cargo) === 1; });
+  var supervisor = membros.filter(function(m){ return nivelCargo(m.cargo) === 2; });
+  var salaoN3 = membros.filter(function(m){ return nivelCargo(m.cargo) === 3 && grupoCargo(m.cargo) === 'salao'; });
+  var cozinhaN3 = membros.filter(function(m){ return nivelCargo(m.cargo) === 3 && grupoCargo(m.cargo) === 'cozinha'; });
+  var salaoN4 = membros.filter(function(m){ return nivelCargo(m.cargo) === 4 && grupoCargo(m.cargo) === 'salao'; });
+  var cozinhaN4 = membros.filter(function(m){ return nivelCargo(m.cargo) === 4 && grupoCargo(m.cargo) === 'cozinha'; });
+  var salaoN5 = membros.filter(function(m){ return nivelCargo(m.cargo) === 5 && grupoCargo(m.cargo) === 'salao'; });
+  var cozinhaN5 = membros.filter(function(m){ return nivelCargo(m.cargo) === 5 && grupoCargo(m.cargo) === 'cozinha'; });
+
+  var html = '<div class="org-setor-bloco">';
+  html += '<div class="org-setor-titulo">A&B</div>';
+  html += '<div class="org-col-line"></div>';
+
+  // Gerente
+  if(gerente.length){
+    html += '<div style="display:flex;justify-content:center">';
+    gerente.forEach(function(m){ html += cardOrg(m,'lider'); });
+    html += '</div><div class="org-col-line"></div>';
+  }
+
+  // Supervisor
+  if(supervisor.length){
+    html += '<div style="display:flex;justify-content:center">';
+    supervisor.forEach(function(m){ html += cardOrg(m,'sub'); });
+    html += '</div><div class="org-col-line"></div>';
+  }
+
+  // Divisão em duas colunas: Salão | Cozinha
+  html += '<div style="display:flex;gap:24px;justify-content:center;align-items:flex-start">';
+
+  // Coluna Salão
+  html += '<div style="display:flex;flex-direction:column;align-items:center;gap:0">';
+  html += '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;padding:2px 8px;background:var(--surface2);border-radius:8px">Salão</div>';
+  if(salaoN3.length){
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">';
+    salaoN3.forEach(function(m){ html += cardOrg(m,'sub'); });
+    html += '</div><div class="org-col-line"></div>';
+  }
+  if(salaoN4.length){
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">';
+    salaoN4.forEach(function(m){ html += cardOrg(m,'op'); });
+    html += '</div><div class="org-col-line"></div>';
+  }
+  if(salaoN5.length){
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">';
+    salaoN5.forEach(function(m){ html += cardOrg(m,'op'); });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Coluna Cozinha
+  html += '<div style="display:flex;flex-direction:column;align-items:center;gap:0">';
+  html += '<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;padding:2px 8px;background:var(--surface2);border-radius:8px">Cozinha</div>';
+  if(cozinhaN3.length){
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">';
+    cozinhaN3.forEach(function(m){ html += cardOrg(m,'sub'); });
+    html += '</div><div class="org-col-line"></div>';
+  }
+  if(cozinhaN4.length){
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">';
+    cozinhaN4.forEach(function(m){ html += cardOrg(m,'op'); });
+    html += '</div><div class="org-col-line"></div>';
+  }
+  if(cozinhaN5.length){
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">';
+    cozinhaN5.forEach(function(m){ html += cardOrg(m,'op'); });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  html += '</div></div>';
+  return html;
+}
+
 
 /* ===== DESLIGAMENTO ===== */
 const MOTIVO_LBL = {
