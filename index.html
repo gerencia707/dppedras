@@ -261,7 +261,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v1.7 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v1.8 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -1178,12 +1178,21 @@ function sD(k, v, _ultimoId){
 
 async function upsertUm(k, reg){
   var map = TBMAP[k];
-  if(!map) return;
+  if(!map){ console.warn('TBMAP nao tem chave:', k); return; }
   try {
     var row = supaRow(k, reg);
+    console.log('Salvando no Supabase:', map.tb, row);
     var res = await supa.from(map.tb).upsert(row, {onConflict:'id'});
-    if(res.error) console.warn('upsert erro ('+k+'):', res.error.message);
-  } catch(e){ console.warn('upsert falhou ('+k+'):', e.message); }
+    if(res.error){
+      console.error('ERRO upsert ('+k+'):', res.error);
+      toast('Erro ao salvar: '+res.error.message, true);
+    } else {
+      console.log('Salvo com sucesso:', map.tb);
+    }
+  } catch(e){
+    console.error('EXCECAO upsert ('+k+'):', e);
+    toast('Erro de conexao: '+e.message, true);
+  }
 }
 
 async function delUm(k, id){
@@ -1435,6 +1444,19 @@ function fromSupaMatriz(r){
 }
 
 // Carregar todos os dados do Supabase para o cache ao iniciar
+async function testarConexao(){
+  try {
+    var res = await supa.from('dp_setores').select('count').limit(1);
+    if(res.error) throw new Error(res.error.message);
+    console.log('Supabase conectado com sucesso');
+    return true;
+  } catch(e){
+    console.error('Supabase FALHOU:', e.message);
+    toast('Supabase sem conexao: '+e.message, true);
+    return false;
+  }
+}
+
 async function carregarDoSupabase(){
   document.getElementById('loading-overlay').style.display='flex';
   try {
@@ -1513,7 +1535,12 @@ function sSetores(v){
 }
 
 /* ===== UTILS ===== */
-const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+function uid(){
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    var r = Math.random()*16|0;
+    return (c==='x' ? r : (r&0x3|0x8)).toString(16);
+  });
+}
 function toast(msg,err=false){const t=document.getElementById('toast');t.textContent=msg;t.className=err?'show err':'show';setTimeout(()=>t.className='',3000);}
 let _ccb=null;
 function conf(msg,cb,lbl='Confirmar'){document.getElementById('cm').textContent=msg;document.getElementById('cok').textContent=lbl;document.getElementById('co').classList.add('open');_ccb=cb;}
@@ -3386,7 +3413,14 @@ if(!gD('cargos').length){
     {id:uid(),nome:'Menor aprendiz',setor:'Administrativo'}
   ]);
 }
-carregarDoSupabase().then(function(){ renderDash(); });
+testarConexao().then(function(ok){
+  if(ok){
+    carregarDoSupabase().then(function(){ renderDash(); });
+  } else {
+    document.getElementById('loading-overlay').style.display='none';
+    renderDash();
+  }
+});
 </script>
 </body>
 </html>
