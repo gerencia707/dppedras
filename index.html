@@ -261,7 +261,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v1.8 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v1.9 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -1365,11 +1365,14 @@ async function syncConfig(v){
 function slugSetor(nome){
   if(!nome) return 'administrativo';
   const map = {
-    'Manutenção':'manutencao','Governança':'governanca',
-    'Recepção':'recepcao','A&B':'ab','Cozinha':'cozinha',
-    'Lazer':'lazer','Administrativo':'administrativo','Reservas':'reservas'
+    'Governança':'governanca','Recepção':'recepcao',
+    'A&B Salão':'ab-salao','A&B Cozinha':'ab-cozinha',
+    'Manutenção':'manutencao','Administrativo':'administrativo',
+    // compatibilidade com nomes antigos
+    'A&B':'ab-salao','Cozinha':'ab-cozinha',
+    'Lazer':'lazer','Reservas':'reservas'
   };
-  return map[nome] || nome.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'');
+  return map[nome] || nome.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
 }
 function getColabSetor(colabId){
   const c = (_cache.colabs||[]).find(function(x){ return x.id===colabId; });
@@ -1379,8 +1382,10 @@ function getColabSetor(colabId){
 // Converter linha do Supabase para formato local
 function fromSupaColab(r){
   const SETOR_NOME = {
-    manutencao:'Manutenção',governanca:'Governança',recepcao:'Recepção',
-    ab:'A&B',cozinha:'Cozinha',lazer:'Lazer',administrativo:'Administrativo',reservas:'Reservas'
+    'governanca':'Governança','recepcao':'Recepção',
+    'ab-salao':'A&B Salão','ab-cozinha':'A&B Cozinha',
+    'manutencao':'Manutenção','administrativo':'Administrativo',
+    'ab':'A&B Salão','cozinha':'A&B Cozinha','lazer':'Lazer','reservas':'Reservas'
   };
   return {
     id:r.id, nome:r.nome, cpf:r.cpf||'', pis:r.pis||'',
@@ -1397,8 +1402,10 @@ function fromSupaColab(r){
 }
 function fromSupaCand(r){
   const SETOR_NOME = {
-    manutencao:'Manutenção',governanca:'Governança',recepcao:'Recepção',
-    ab:'A&B',cozinha:'Cozinha',lazer:'Lazer',administrativo:'Administrativo',reservas:'Reservas'
+    'governanca':'Governança','recepcao':'Recepção',
+    'ab-salao':'A&B Salão','ab-cozinha':'A&B Cozinha',
+    'manutencao':'Manutenção','administrativo':'Administrativo',
+    'ab':'A&B Salão','cozinha':'A&B Cozinha','lazer':'Lazer','reservas':'Reservas'
   };
   return {
     id:r.id, nome:r.nome, cargo:r.cargo||'',
@@ -1518,7 +1525,7 @@ async function carregarDoSupabase(){
 
 
 
-const SETORES_DEFAULT=['Recepção','A&B','Governança','Lazer','Manutenção','Cozinha','Administrativo','Reservas'];
+const SETORES_DEFAULT=['Governança','Recepção','A&B Salão','A&B Cozinha','Manutenção','Administrativo'];
 function gSetores(){
   return _cache.setores_arr ? _cache.setores_arr.list : SETORES_DEFAULT;
 }
@@ -2763,11 +2770,18 @@ function renderOrganograma(){
 
   var html = '<div class="org-tree">';
 
-  // Nível 1: GM
+  // Nível 1: GM — puxado das configurações (nome do GM e hotel)
+  // Verifica se há colaborador com cargo de Gerente Geral cadastrado
+  var gmColab = colabs.find(function(c){
+    return c.cargo && (c.cargo.toLowerCase().includes('gerente geral') || c.cargo.toLowerCase().includes('gm'));
+  });
+  var gmExibir = gmColab ? gmColab.nome : gmNome;
+  var gmCargo = gmColab ? gmColab.cargo : 'Gerente Geral';
+
   html += '<div class="org-level">'
     +'<div class="org-card gm">'
-    +'<div class="org-card-nome">'+gmNome+'</div>'
-    +'<div class="org-card-cargo">Gerente Geral</div>'
+    +'<div class="org-card-nome">'+gmExibir+'</div>'
+    +'<div class="org-card-cargo">'+gmCargo+'</div>'
     +'</div>'
     +'</div>';
 
@@ -2776,10 +2790,16 @@ function renderOrganograma(){
   // Filtrar setores
   var setoresFiltrados = setorFiltro ? [setorFiltro] : setores;
 
-  // Para cada setor: líderes + operacionais
+  // Para cada setor: líderes + operacionais (excluindo GM)
   var blocos = setoresFiltrados.map(function(setor){
-    var lideres = colabs.filter(function(c){ return c.setor === setor && c.lider === 'sim'; });
-    var ops = colabs.filter(function(c){ return c.setor === setor && c.lider !== 'sim'; });
+    var lideres = colabs.filter(function(c){
+      return c.setor === setor && c.lider === 'sim' &&
+        !(c.cargo && (c.cargo.toLowerCase().includes('gerente geral') || c.cargo.toLowerCase().includes('gm')));
+    });
+    var ops = colabs.filter(function(c){
+      return c.setor === setor && c.lider !== 'sim' &&
+        !(c.cargo && (c.cargo.toLowerCase().includes('gerente geral') || c.cargo.toLowerCase().includes('gm')));
+    });
     if(!lideres.length && !ops.length) return null;
 
     var b = '<div class="org-setor-bloco">';
@@ -3397,22 +3417,7 @@ function limparTudo(){
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){document.querySelectorAll('.mo.open').forEach(function(m){m.classList.remove('open');});document.getElementById('co').classList.remove('open');}});
 
 // Cargos padrão se não existirem
-if(!gD('cargos').length){
-  sD('cargos',[
-    {id:uid(),nome:'Recepcionista',setor:'Recepção'},
-    {id:uid(),nome:'Auxiliar de recepção',setor:'Recepção'},
-    {id:uid(),nome:'Camareira',setor:'Governança'},
-    {id:uid(),nome:'Supervisora de governança',setor:'Governança'},
-    {id:uid(),nome:'Garçom',setor:'A&B'},
-    {id:uid(),nome:'Barista',setor:'A&B'},
-    {id:uid(),nome:'Cozinheiro',setor:'Cozinha'},
-    {id:uid(),nome:'Auxiliar de cozinha',setor:'Cozinha'},
-    {id:uid(),nome:'Monitor de lazer',setor:'Lazer'},
-    {id:uid(),nome:'Auxiliar de manutenção',setor:'Manutenção'},
-    {id:uid(),nome:'Assistente administrativo',setor:'Administrativo'},
-    {id:uid(),nome:'Menor aprendiz',setor:'Administrativo'}
-  ]);
-}
+// Cargos carregados do Supabase — não preencher localmente
 testarConexao().then(function(ok){
   if(ok){
     carregarDoSupabase().then(function(){ renderDash(); });
