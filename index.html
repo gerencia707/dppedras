@@ -261,7 +261,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v1.6 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v1.7 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -1163,9 +1163,35 @@ const _cache = {};
 function gD(k){ return _cache[k] ? JSON.parse(JSON.stringify(_cache[k])) : []; }
 
 // Salvar no cache E sincronizar com Supabase (assíncrono)
-function sD(k, v){
+function sD(k, v, _ultimoId){
+  var anterior = _cache[k] || [];
   _cache[k] = v;
-  syncSupabase(k, v);
+  // Se tiver id do registro alterado, só upsert ele — mais rápido e seguro
+  if(_ultimoId){
+    var reg = v.find(function(r){ return r.id === _ultimoId; });
+    if(reg) upsertUm(k, reg);
+    else delUm(k, _ultimoId); // foi removido
+  } else {
+    syncSupabase(k, v);
+  }
+}
+
+async function upsertUm(k, reg){
+  var map = TBMAP[k];
+  if(!map) return;
+  try {
+    var row = supaRow(k, reg);
+    var res = await supa.from(map.tb).upsert(row, {onConflict:'id'});
+    if(res.error) console.warn('upsert erro ('+k+'):', res.error.message);
+  } catch(e){ console.warn('upsert falhou ('+k+'):', e.message); }
+}
+
+async function delUm(k, id){
+  var map = TBMAP[k];
+  if(!map) return;
+  try {
+    await supa.from(map.tb).delete().eq('id', id);
+  } catch(e){ console.warn('delete falhou ('+k+'):', e.message); }
 }
 
 // Config (objeto único, não array)
@@ -1762,7 +1788,7 @@ function salvColab(){
   for(let i=0;i<nFilhos;i++){const el=document.getElementById('c-idade-'+i);if(el)idades.push(parseInt(el.value)||0);}
   const obj={id:id||uid(),nome:nm,cpf:document.getElementById('c-cpf').value,tel:document.getElementById('c-tel').value,cargo:document.getElementById('c-cargo').value,setor:document.getElementById('c-setor').value,lider:document.getElementById('c-lider').value,adm:document.getElementById('c-adm').value,aniv:document.getElementById('c-aniv').value,aso:document.getElementById('c-aso').value,contrato:document.getElementById('c-contrato').value,status:document.getElementById('c-status').value,email:document.getElementById('c-email').value,docs:document.getElementById('c-docs').value,obs:document.getElementById('c-obs').value,pis:document.getElementById('c-pis').value,ecivil:document.getElementById('c-ecivil').value,esc:document.getElementById('c-esc').value,banco:document.getElementById('c-banco').value,conta:document.getElementById('c-conta').value,filhos:temFilhos?'sim':'nao',nfilhos:nFilhos,idadesFilhos:idades};
   if(id){const i=C.findIndex(x=>x.id===id);if(i>-1)C[i]=obj;}else C.push(obj);
-  sD('colabs',C);fMo('m-colab');renderColabs();toast('Colaborador salvo!');
+  sD('colabs',C,obj.id);fMo('m-colab');renderColabs();toast('Colaborador salvo!');
 }
 function delColab(id){conf('Remover colaborador?',()=>{sD('colabs',gD('colabs').filter(c=>c.id!==id));renderColabs();toast('Removido');});}
 function expColabCSV(){
@@ -1854,7 +1880,7 @@ function salvCand(){
   const C=gD('candidatos');const id=document.getElementById('ca-id').value;
   const obj={id:id||uid(),nome:nm,cargo:document.getElementById('ca-cargo').value,setor:document.getElementById('ca-setor').value,tel:document.getElementById('ca-tel').value,etapa:document.getElementById('ca-etapa').value,origem:document.getElementById('ca-origem').value,data:document.getElementById('ca-data').value,prev:document.getElementById('ca-prev').value,obs:document.getElementById('ca-obs').value};
   if(id){const i=C.findIndex(x=>x.id===id);if(i>-1)C[i]=obj;}else C.push(obj);
-  sD('candidatos',C);fMo('m-cand');renderPipeline();toast('Candidato salvo!');
+  sD('candidatos',C,obj.id);fMo('m-cand');renderPipeline();toast('Candidato salvo!');
 }
 function delCandModal(){
   const id=document.getElementById('ca-id').value;if(!id)return;
@@ -2586,7 +2612,7 @@ function salvEPI(){
   };
   if(id){ const i = E.findIndex(function(e){ return e.id === id; }); if(i > -1) E[i] = obj; }
   else E.push(obj);
-  sD('epi_entregas', E);
+  sD('epi_entregas', E, obj.id);
   fMo('m-epi'); renderEPI(); toast('EPI registrado!');
 }
 
@@ -2907,7 +2933,7 @@ function confirmarDesligamento(){
 
   const D = gD('desligados');
   D.push(registro);
-  sD('desligados', D);
+  sD('desligados', D, registro.id);
 
   // Marcar colaborador como desligado
   colabs[idx].status = 'desligado';
@@ -3127,7 +3153,7 @@ function salvTipoEPI(){
   };
   if(id){ const i = T.findIndex(function(t){ return t.id === id; }); if(i > -1) T[i] = obj; }
   else T.push(obj);
-  sD('epi_tipos', T);
+  sD('epi_tipos', T, obj.id);
   fMo('m-tipo-epi'); renderCfgEPI(); toast('Tipo de EPI salvo!');
 }
 
@@ -3322,7 +3348,7 @@ function salvCargo(){
   const C=gD('cargos');const id=document.getElementById('cargo-id').value;
   const obj={id:id||uid(),nome:nm,setor:document.getElementById('cargo-setor').value};
   if(id){const i=C.findIndex(x=>x.id===id);if(i>-1)C[i]=obj;}else C.push(obj);
-  sD('cargos',C);fMo('m-cargo');renderCfgCargos();toast('Cargo salvo!');
+  sD('cargos',C,obj.id);fMo('m-cargo');renderCfgCargos();toast('Cargo salvo!');
 }
 function delCargo(btn){
   var id = btn.dataset.id;
