@@ -285,7 +285,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v2.3 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v2.4 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -373,11 +373,14 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
         <div class="tw">
           <div class="matriz-row header">
             <div class="mz-cell">Setor</div>
-            <div class="mz-cell center">Líderes ideal</div>
-            <div class="mz-cell center">Líderes atual</div>
+            <div class="mz-cell center">Líder ideal</div>
+            <div class="mz-cell center">Sub-líder ideal</div>
+            <div class="mz-cell center">Coord. ideal</div>
             <div class="mz-cell center">Oper. ideal</div>
+            <div class="mz-cell center">Líder atual</div>
             <div class="mz-cell center">Oper. atual</div>
-            <div class="mz-cell center">Saldo vagas</div>
+            <div class="mz-cell center">Saldo</div>
+            <div class="mz-cell center">Ações</div>
           </div>
           <div id="mz-rows"></div>
         </div>
@@ -1868,8 +1871,9 @@ function abrirColab(id=null){
       document.getElementById('c-nm').value=c.nome;
       document.getElementById('c-cpf').value=c.cpf||'';
       document.getElementById('c-tel').value=c.tel||'';
-      document.getElementById('c-cargo').value=c.cargo||'';
       document.getElementById('c-setor').value=c.setor||'';
+      filtrarCargosColab();
+      document.getElementById('c-cargo').value=c.cargo||'';
       document.getElementById('c-lider').value=c.lider||'nao';
       document.getElementById('c-adm').value=c.adm||'';
       document.getElementById('c-aniv').value=c.aniv||'';
@@ -3554,15 +3558,13 @@ function renderCfgDocs(){
   var el = document.getElementById('cfg-docs-lista');
   if(!el) return;
   el.innerHTML = docs.map(function(d){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">'
-      +'<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:normal;flex:1">'
-      +'<input type="checkbox" '+(d.obrig?'checked':'')+' onchange="togDocAdm(this.dataset.id,this.checked)" data-id="'+d.id+'"> '
-      +d.nome+'</label>'
-      +'<button onclick="delDocAdm(this.dataset.id)" data-id="'+d.id+'" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:0 0 0 8px">&#215;</button>'
-    +'</div>';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)">'
+      +'<input type="checkbox" '+(d.obrig?'checked':'')+' onchange="togDocAdm(this.dataset.id,this.checked)" data-id="'+d.id+'" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--verde)">'
+      +'<span style="flex:1;font-size:13px;color:var(--text)">'+d.nome+'</span>'
+      +'<button onclick="delDocAdm(this.dataset.id)" data-id="'+d.id+'" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1">&#215;</button>'
+      +'</div>';
   }).join('');
 }
-
 function togDocAdm(id, checked){
   var docs = gDocsAdm();
   var d = docs.find(function(x){ return x.id===id; });
