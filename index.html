@@ -261,7 +261,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v2.0 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v2.1 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -3114,22 +3114,30 @@ function confirmarDesligamento(){
     criadoEm: new Date().toISOString()
   };
 
+  // 1. Salvar no histórico de desligados
   const D = gD('desligados');
   D.push(registro);
   sD('desligados', D, registro.id);
 
-  // Marcar colaborador como desligado
+  // 2. Atualizar colaborador no Supabase como desligado
   colabs[idx].status = 'desligado';
   colabs[idx].dataDeslig = data;
-  sD('colabs', colabs);
 
-  // Registrar no histórico
+  // Salvar o colaborador atualizado no Supabase
+  upsertUm('colabs', colabs[idx]);
+
+  // Remover do cache local imediatamente (filtro de desligados)
+  _cache.colabs = colabs.filter(function(x){ return x.status !== 'desligado'; });
+
+  // Salvar o desligamento também no Supabase
+  upsertUm('desligados', registro);
+
+  // 3. Registrar no histórico
   addHistItem(colabId, 'desligamento', MOTIVO_LBL[motivo] + (document.getElementById('des-obs').value ? ' — ' + document.getElementById('des-obs').value : ''), data);
 
-  // Abrir vaga no pipeline?
+  // 4. Abrir vaga no pipeline?
   if(document.getElementById('des-abrir-vaga').checked){
-    const cands = gD('candidatos');
-    cands.push({
+    const novaVaga = {
       id: uid(),
       nome: 'VAGA — ' + (c.cargo || 'A definir'),
       cargo: c.cargo || '',
@@ -3140,13 +3148,16 @@ function confirmarDesligamento(){
       data: hoje(),
       prev: '',
       obs: 'Vaga aberta após desligamento de ' + c.nome + ' em ' + fmD(data) + '. Motivo: ' + MOTIVO_LBL[motivo]
-    });
-    sD('candidatos', cands);
+    };
+    const cands = gD('candidatos');
+    cands.push(novaVaga);
+    sD('candidatos', cands, novaVaga.id);
   }
 
   fMo('m-deslig');
   renderColabs();
-  toast(c.nome + ' desligado. ' + (document.getElementById('des-abrir-vaga').checked ? 'Vaga aberta no pipeline.' : ''));
+  renderDesligados();
+  toast(c.nome + ' desligado e movido para o histórico. ' + (document.getElementById('des-abrir-vaga').checked ? 'Vaga aberta no pipeline.' : ''));
 }
 
 function renderDesligados(){
