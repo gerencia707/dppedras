@@ -202,6 +202,30 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
 .org-col-line{width:2px;height:16px;background:var(--border)}
 .org-setor-bloco{display:flex;flex-direction:column;align-items:center;margin:0 8px}
 .org-setor-titulo{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:8px;padding:3px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
+/* ACORDEÃO COLABORADORES */
+.acord{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:10px;box-shadow:var(--shadow)}
+.acord-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;background:var(--surface);transition:.15s}
+.acord-hdr:hover{background:var(--surface2)}
+.acord-hdr.open{background:var(--verde-ll);border-bottom:1px solid var(--border)}
+.acord-left{display:flex;align-items:center;gap:12px}
+.acord-setor{font-size:13px;font-weight:700;color:var(--verde)}
+.acord-count{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--verde);color:#fff;font-weight:600}
+.acord-count.alerta{background:var(--orange)}
+.acord-count.critico{background:var(--red)}
+.acord-arrow{font-size:12px;color:var(--text3);transition:.2s;transform:rotate(0deg)}
+.acord-hdr.open .acord-arrow{transform:rotate(180deg)}
+.acord-body{display:none;border-top:1px solid var(--border)}
+.acord-body.open{display:block}
+.acord-resumo{display:flex;gap:12px;font-size:11px;color:var(--text3)}
+.acord-resumo span{display:flex;align-items:center;gap:3px}
+
+/* LINHA COMPACTA */
+.colab-row{display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr auto;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border);transition:.1s}
+.colab-row:hover{background:var(--surface2)}
+.colab-row:last-child{border-bottom:none}
+.colab-th{display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr auto;gap:8px;padding:7px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.colab-acoes{display:flex;gap:4px;justify-content:flex-end}
+
 /* PRINT */
 @media print{
   body{background:#fff;color:#000;font-family:Arial,sans-serif}
@@ -261,7 +285,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v2.1 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v2.3 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -315,23 +339,16 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
         <button class="btn btn-p" onclick="abrirColab()">+ Colaborador</button>
       </div>
       <div class="sg" id="col-stats"></div>
-      <div class="card">
-        <div class="card-hdr">
-          <span class="card-title" id="col-cnt">Colaboradores</span>
-          <button class="btn btn-s btn-sm" onclick="expColabCSV()">↓ CSV</button>
-        </div>
-        <div class="tw">
-          <table>
-            <thead><tr>
-              <th>Colaborador</th><th>Função / Setor</th><th>Admissão</th>
-              <th>Contrato Exp.</th><th>Próx. ASO</th><th>Aniversário</th>
-              <th>Banco</th><th>Status</th><th>Ações</th>
-            </tr></thead>
-            <tbody id="col-tb"></tbody>
-          </table>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:12px;color:var(--text3)" id="col-total"></span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-s btn-sm" onclick="togTodosAcord(true)">&#8597; Expandir todos</button>
+          <button class="btn btn-s btn-sm" onclick="togTodosAcord(false)">&#8597; Recolher todos</button>
+          <button class="btn btn-s btn-sm" onclick="expColabCSV()">&#8595; CSV</button>
         </div>
       </div>
-    </div>
+      <div id="col-acordeao"></div>
+</div>
 
     <!-- PIPELINE -->
     <div class="page" id="page-pipeline">
@@ -1676,96 +1693,163 @@ function renderDash(){
 
 /* ===== COLABORADORES ===== */
 function renderColabs(){
-  const setores=gSetores();
-  const setEl=document.getElementById('col-set');
-  if(setEl.options.length<=1){setores.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;setEl.appendChild(o);});}
-  const q=(document.getElementById('col-q').value||'').toLowerCase();
-  const sf=document.getElementById('col-set').value;
-  const st=document.getElementById('col-st').value;
-  let lista=gD('colabs').filter(c=>c.status!=='desligado');
-  if(q) lista=lista.filter(c=>c.nome.toLowerCase().includes(q)||(c.cargo&&c.cargo.toLowerCase().includes(q)));
-  if(sf) lista=lista.filter(c=>c.setor===sf);
-  if(st) lista=lista.filter(c=>(st==='experiencia'?c.contrato===st||c.status===st:c.status===st));
+  const setores = gSetores();
+  const q = (document.getElementById('col-q').value||'').toLowerCase();
+  const sf = document.getElementById('col-set').value;
+  const st = document.getElementById('col-st').value;
 
-  const todos=gD('colabs').filter(c=>c.status!=='desligado');
-  document.getElementById('col-stats').innerHTML=`
-    <div class="sc gv"><div class="sl">Ativos</div><div class="sv">${todos.filter(c=>c.status==='ativo').length}</div></div>
-    <div class="sc or"><div class="sl">Em experiência</div><div class="sv">${todos.filter(c=>c.contrato==='experiencia').length}</div></div>
-    <div class="sc bl"><div class="sl">De férias</div><div class="sv">${todos.filter(c=>c.status==='ferias').length}</div></div>
-    <div class="sc"><div class="sl">Afastados</div><div class="sv">${todos.filter(c=>c.status==='afastado').length}</div></div>
-    <div class="sc"><div class="sl">Total</div><div class="sv">${todos.length}</div></div>
-  `;
-  document.getElementById('col-cnt').textContent=`Colaboradores (${lista.length})`;
-  const hj=hoje();
-  document.getElementById('col-tb').innerHTML=lista.map(c=>{
-    // Contrato
-    let ctBadge='<span class="badge b-gy">—</span>';let ctBar='';
-    if(c.contrato==='experiencia'&&c.adm){
-      const d45=addDias(c.adm,45);const d90=addDias(c.adm,90);
-      const da45=diasAte(d45);const da90=diasAte(d90);
-      if(da90<0){ctBadge='<span class="badge b-gv">Efetivado</span>';}
-      else if(da45>=0){
-        ctBadge=`<span class="badge ${da45<=7?'b-re':da45<=14?'b-or':'b-bl'}">45d: ${da45}d</span>`;
-        const pct=Math.min(100,Math.round(((45-da45)/45)*100));
-        const cor=da45<=7?'danger':da45<=14?'warn':'ok';
-        ctBar=`<div class="cbar">${Array.from({length:8},(_,i)=>`<div class="cs ${i<Math.round(pct/12.5)?cor:''}"></div>`).join('')}</div>`;
-      } else {
-        ctBadge=`<span class="badge ${da90<=10?'b-re':da90<=20?'b-or':'b-or'}">90d: ${da90}d</span>`;
-        const pct=Math.min(100,Math.round(((45-da90)/45)*100));
-        const cor=da90<=10?'danger':da90<=20?'warn':'ok';
-        ctBar=`<div class="cbar">${Array.from({length:8},(_,i)=>`<div class="cs ${i<Math.round(pct/12.5)?cor:''}"></div>`).join('')}</div>`;
-      }
+  let todos = gD('colabs').filter(function(c){ return c.status !== 'desligado'; });
+  if(q) todos = todos.filter(function(c){
+    return c.nome.toLowerCase().includes(q) || (c.cargo&&c.cargo.toLowerCase().includes(q));
+  });
+  if(sf) todos = todos.filter(function(c){ return c.setor === sf; });
+  if(st) todos = todos.filter(function(c){ return c.status === st; });
+
+  // Stats gerais
+  const ativos  = todos.filter(function(c){ return c.status==='ativo'; }).length;
+  const exp     = todos.filter(function(c){ return c.status==='experiencia'||c.contrato==='experiencia'; }).length;
+  const ferias  = todos.filter(function(c){ return c.status==='ferias'; }).length;
+  const afastados = todos.filter(function(c){ return c.status==='afastado'; }).length;
+
+  document.getElementById('col-stats').innerHTML =
+    '<div class="sc gv"><div class="sl">Ativos</div><div class="sv">' + ativos + '</div></div>' +
+    '<div class="sc or"><div class="sl">Em experiência</div><div class="sv">' + exp + '</div></div>' +
+    '<div class="sc bl"><div class="sl">De férias</div><div class="sv">' + ferias + '</div></div>' +
+    '<div class="sc re"><div class="sl">Afastados</div><div class="sv">' + afastados + '</div></div>';
+
+  // Agrupar por setor
+  const setoresCom = sf ? [sf] : setores;
+  const semSetor = todos.filter(function(c){ return !c.setor || !setores.includes(c.setor); });
+
+  const container = document.getElementById('col-acordeao');
+  let html = '';
+
+  setoresCom.forEach(function(setor){
+    const membros = todos.filter(function(c){ return c.setor === setor; });
+    if(!membros.length && !sf) return;
+
+    // Contadores de alerta do setor
+    const hj = hoje();
+    const alertas = membros.filter(function(c){
+      if(!c.adm || c.contrato !== 'experiencia') return false;
+      const d45 = addDias(c.adm, 45);
+      const d90 = addDias(c.adm, 90);
+      const dias = Math.min(diasAte(d45) >= 0 ? diasAte(d45) : 999, diasAte(d90) >= 0 ? diasAte(d90) : 999);
+      return dias <= 15;
+    }).length;
+
+    const isOpen = sf || membros.length <= 10;
+    const countCls = alertas > 0 ? 'critico' : '';
+
+    html += '<div class="acord" id="acord-' + setor.replace(/[^a-z0-9]/gi,'') + '">';
+    html += '<div class="acord-hdr' + (isOpen?' open':'') + '" onclick="togAcord(this)">';
+    html += '<div class="acord-left">';
+    html += '<div class="acord-arrow">▼</div>';
+    html += '<div class="acord-setor">' + setor + '</div>';
+    html += '<span class="acord-count' + (alertas>0?' '+countCls:'') + '">' + membros.length + '</span>';
+    if(alertas > 0) html += '<span class="badge b-re" style="font-size:10px">⚠ ' + alertas + ' contrato(s) vencendo</span>';
+    html += '</div>';
+    // Mini resumo
+    const atS = membros.filter(function(c){return c.status==='ativo';}).length;
+    const exS = membros.filter(function(c){return c.status==='experiencia'||c.contrato==='experiencia';}).length;
+    const fS  = membros.filter(function(c){return c.status==='ferias';}).length;
+    html += '<div class="acord-resumo">';
+    if(atS) html += '<span>✓ ' + atS + ' ativo(s)</span>';
+    if(exS) html += '<span>⏳ ' + exS + ' exp.</span>';
+    if(fS)  html += '<span>🏖 ' + fS + ' férias</span>';
+    html += '</div>';
+    html += '</div>'; // acord-hdr
+
+    html += '<div class="acord-body' + (isOpen?' open':'') + '">';
+    if(membros.length){
+      html += '<div class="colab-th"><span>Colaborador</span><span>Cargo</span><span>Admissão</span><span>Contrato</span><span>Status</span><span style="text-align:right">Ações</span></div>';
+      membros.sort(function(a,b){
+        // Líderes primeiro, depois por nome
+        if(a.lider==='sim' && b.lider!=='sim') return -1;
+        if(b.lider==='sim' && a.lider!=='sim') return 1;
+        return a.nome.localeCompare(b.nome);
+      }).forEach(function(c){
+        html += renderColabRow(c);
+      });
+    } else {
+      html += '<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Nenhum colaborador neste setor</div>';
     }
-    // ASO
-    let asoBadge='<span class="badge b-gy">—</span>';
-    if(c.aso){const da=diasAte(c.aso);asoBadge=`<span class="badge ${da<0?'b-re':da<=30?'b-or':'b-gr'}">${da<0?'Vencido':da===0?'Hoje':da+' dias'}</span>`;}
-    // Aniv
-    let anivTag='';
-    if(c.aniv){const[,m,d]=c.aniv.split('-');const ano=new Date().getFullYear();let prox=`${ano}-${m}-${d}`;if(prox<hj)prox=`${ano+1}-${m}-${d}`;const da=diasAte(prox);if(da<=7)anivTag=` <span class="badge b-gr">${da===0?'🎂':da+'d 🎂'}</span>`;}
-    const stM={ativo:'b-gr',experiencia:'b-or',ferias:'b-bl',afastado:'b-gy'};
-    const stL={ativo:'Ativo',experiencia:'Experiência',ferias:'Férias',afastado:'Afastado'};
-    // filhos com menos de 14 anos
-    const menores14=c.filhos==='sim'&&c.idadesFilhos?c.idadesFilhos.filter(i=>i<14).length:0;
-    return`<tr>
-      <td><div style="display:flex;align-items:center;gap:8px"><div class="av">${initials(c.nome)}</div><div>
-        <div class="nm">${c.nome}${c.lider==='sim'?` <span class="badge b-gv" style="font-size:10px">Líder</span>`:''}</div>
-        <div style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap">
-          ${c.tel?`<span class="tsm tmut">${c.tel}</span>`:''}
-          ${c.filhos==='sim'?`<span class="badge b-gy" style="font-size:10px">👶 ${c.nfilhos||'?'} filho(s)${menores14>0?` · ${menores14} <14a`:''}</span>`:''}
-          ${menores14>0?`<span class="badge b-gr" style="font-size:10px">Sal. família</span>`:''}
-        </div>
-      </div></div></td>
-      <td><div>${c.cargo||'—'}</div><div class="tsm tmut">${c.setor||'—'} · ${c.ecivil?c.ecivil.replace('_',' '):''}</div></td>
-      <td><div class="fmono tsm">${fmD(c.adm)}</div></td>
-      <td>${ctBadge}${ctBar}</td>
-      <td>${asoBadge}</td>
-      <td>${c.aniv?fmDlabel(c.aniv)+anivTag:'—'}</td>
-      <td class="tsm">${c.banco||'—'}</td>
-      <td><span class="badge ${stM[c.status]||'b-gy'}">${stL[c.status]||c.status}</span></td>
-      <td><div style="display:flex;gap:3px">
-        <button class="btn btn-s btn-sm btn-ic" onclick="abrirColab(this.dataset.id)" data-id="${c.id}" title="Editar">✎</button>
-        <button class="btn btn-s btn-sm btn-ic" onclick="abrirHistorico('${c.id}')" title="Histórico">📋</button>
-        <button class="btn btn-d btn-sm btn-ic" onclick="delColab('${c.id}')">✕</button>
-      </div></td>
-    </tr>`;
-  }).join('')||'<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">Nenhum colaborador</td></tr>';
+    html += '</div></div>'; // acord-body + acord
+  });
+
+  // Sem setor
+  if(semSetor.length && !sf){
+    html += '<div class="acord">';
+    html += '<div class="acord-hdr open" onclick="togAcord(this)">';
+    html += '<div class="acord-left"><div class="acord-arrow">▼</div><div class="acord-setor" style="color:var(--text3)">Sem setor definido</div><span class="acord-count" style="background:var(--text3)">' + semSetor.length + '</span></div>';
+    html += '</div>';
+    html += '<div class="acord-body open">';
+    html += '<div class="colab-th"><span>Colaborador</span><span>Cargo</span><span>Admissão</span><span>Contrato</span><span>Status</span><span style="text-align:right">Ações</span></div>';
+    semSetor.forEach(function(c){ html += renderColabRow(c); });
+    html += '</div></div>';
+  }
+
+  if(!html){
+    html = '<div style="text-align:center;padding:40px;color:var(--text3)">Nenhum colaborador encontrado</div>';
+  }
+
+  container.innerHTML = html;
+  document.getElementById('col-total').textContent = 'Total: ' + todos.length + ' colaborador(es)';
 }
 
-function calcContrato(){
-  const adm=document.getElementById('c-adm').value;
-  const tp=document.getElementById('c-contrato').value;
-  const box=document.getElementById('c-contrato-box');
-  if(tp==='experiencia'&&adm){
-    box.style.display='block';
-    const d45=addDias(adm,45);const d90=addDias(adm,90);
-    const da45=diasAte(d45);const da90=diasAte(d90);
-    document.getElementById('c-contrato-datas').innerHTML=`
-      <div><div class="tsm tmut">1º período — 45 dias</div><div style="font-weight:600">${fmD(d45)}</div><div class="tsm ${da45<0?'tmut':'b-or'}">${da45<0?'Vencido':da45===0?'Hoje':da45+' dias'}</div></div>
-      <div><div class="tsm tmut">2º período — 90 dias</div><div style="font-weight:600">${fmD(d90)}</div><div class="tsm ${da90<0?'tmut':'b-re'}">${da90<0?'Vencido / efetivado':da90===0?'Hoje':da90+' dias'}</div></div>
-      <div><div class="tsm tmut">Admissão</div><div style="font-weight:600">${fmD(adm)}</div></div>
-    `;
-  } else box.style.display='none';
+function renderColabRow(c){
+  const hj = hoje();
+  // Contrato visual
+  let contratoTag = '';
+  if(c.contrato === 'experiencia' && c.adm){
+    const d45 = addDias(c.adm, 45); const d90 = addDias(c.adm, 90);
+    const dias45 = diasAte(d45); const dias90 = diasAte(d90);
+    if(dias45 >= 0){
+      const cor = dias45 <= 5 ? 'b-re' : dias45 <= 15 ? 'b-or' : 'b-bl';
+      contratoTag = '<span class="badge ' + cor + '">45d: ' + dias45 + 'd</span>';
+    } else if(dias90 >= 0){
+      const cor = dias90 <= 5 ? 'b-re' : dias90 <= 15 ? 'b-or' : 'b-bl';
+      contratoTag = '<span class="badge ' + cor + '">90d: ' + dias90 + 'd</span>';
+    } else {
+      contratoTag = '<span class="badge b-gy">Exp. vencida</span>';
+    }
+  } else {
+    const CONT = {clt:'CLT',temporario:'Temp.',estagio:'Estágio',aprendiz:'Aprendiz',pj:'PJ'};
+    contratoTag = '<span class="badge b-gy">' + (CONT[c.contrato]||c.contrato||'CLT') + '</span>';
+  }
+
+  const ST_COR = {ativo:'b-gv',experiencia:'b-or',ferias:'b-bl',afastado:'b-re',desligado:'b-gy'};
+  const ST_LBL = {ativo:'Ativo',experiencia:'Experiência',ferias:'Férias',afastado:'Afastado',desligado:'Desligado'};
+  const liderTag = c.lider==='sim' ? '<span class="badge b-gv" style="font-size:9px">Líder</span> ' : '';
+
+  return '<div class="colab-row">'
+    + '<div style="display:flex;align-items:center;gap:8px"><div class="av" style="width:28px;height:28px;font-size:10px">' + initials(c.nome) + '</div>'
+    + '<div><div class="nm" style="font-size:13px">' + liderTag + c.nome + '</div>'
+    + (c.tel ? '<div class="tsm tmut">' + c.tel + '</div>' : '') + '</div></div>'
+    + '<div class="tsm">' + (c.cargo||'—') + '</div>'
+    + '<div class="fmono tsm">' + fmD(c.adm) + '</div>'
+    + '<div>' + contratoTag + '</div>'
+    + '<div><span class="badge ' + (ST_COR[c.status]||'b-gy') + '">' + (ST_LBL[c.status]||c.status||'—') + '</span></div>'
+    + '<div class="colab-acoes">'
+      + '<button class="btn btn-s btn-sm btn-ic" onclick="abrirColab(this.dataset.id)" data-id="' + c.id + '" title="Editar">✎</button>'
+      + '<button class="btn btn-s btn-sm btn-ic" onclick="abrirHistorico(this.dataset.id)" data-id="' + c.id + '" title="Histórico">📋</button>'
+      + '<button class="btn btn-d btn-sm" onclick="abrirDesligamento(this.dataset.id)" data-id="' + c.id + '" style="font-size:11px">📦 Desligar</button>'
+      + '<button class="btn btn-d btn-sm btn-ic" onclick="delColab(this.dataset.id)" data-id="' + c.id + '" title="Remover">✕</button>'
+    + '</div>'
+    + '</div>';
 }
+
+function togAcord(hdr){
+  hdr.classList.toggle('open');
+  hdr.nextElementSibling.classList.toggle('open');
+}
+function togTodosAcord(abrir){
+  document.querySelectorAll('.acord-hdr').forEach(function(h){
+    if(abrir){ h.classList.add('open'); h.nextElementSibling.classList.add('open'); }
+    else { h.classList.remove('open'); h.nextElementSibling.classList.remove('open'); }
+  });
+}
+
 
 function abrirColab(id=null){
   const setores=gSetores();
