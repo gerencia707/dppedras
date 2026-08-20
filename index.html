@@ -285,7 +285,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v2.6 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v2.7 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -3646,6 +3646,39 @@ function limparTudo(){
     ['colabs','candidatos','matriz','ferias','historico','docs_colabs','cargos','config'].forEach(function(k){localStorage.removeItem('dp_'+k);});
     location.reload();
   },'Apagar tudo');
+}
+
+
+function calcContrato(){
+  const adm = document.getElementById('c-adm').value;
+  const tipo = document.getElementById('c-contrato').value;
+  const box = document.getElementById('c-contrato-box');
+  const datas = document.getElementById('c-contrato-datas');
+  if(!box || !datas) return;
+  if(tipo === 'experiencia' && adm){
+    box.style.display = 'block';
+    const admDt = new Date(adm + 'T12:00:00');
+    function addD(d, n){ var dt = new Date(d); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); }
+    function fmD(d){ if(!d) return '—'; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+    function diasAteLocal(d){ return Math.round((new Date(d+'T12:00:00') - new Date())/(1000*60*60*24)); }
+    var v45 = addD(adm, 45);
+    var v90 = addD(adm, 90);
+    var d45 = diasAteLocal(v45);
+    var d90 = diasAteLocal(v90);
+    var cor45 = d45 < 0 ? '#6b7770' : d45 <= 5 ? 'var(--red)' : d45 <= 15 ? 'var(--orange)' : 'var(--blue)';
+    var cor90 = d90 < 0 ? '#6b7770' : d90 <= 5 ? 'var(--red)' : d90 <= 15 ? 'var(--orange)' : 'var(--blue)';
+    datas.innerHTML =
+      '<div style="text-align:center"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">1° período (45d)</div>'
+      +'<div style="font-weight:700;color:'+cor45+'">'+fmD(v45)+'</div>'
+      +'<div style="font-size:11px;color:'+cor45+'">'+(d45 < 0 ? 'Vencido' : d45+'d restantes')+'</div></div>'
+      +'<div style="text-align:center"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">2° período (90d)</div>'
+      +'<div style="font-weight:700;color:'+cor90+'">'+fmD(v90)+'</div>'
+      +'<div style="font-size:11px;color:'+cor90+'">'+(d90 < 0 ? 'Vencido' : d90+'d restantes')+'</div></div>'
+      +'<div style="text-align:center"><div style="font-size:11px;color:var(--text3);margin-bottom:3px">Tempo de empresa</div>'
+      +'<div style="font-weight:700">'+(Math.floor((new Date()-new Date(adm+'T12:00:00'))/(1000*60*60*24*30.44)))+' meses</div></div>';
+  } else {
+    box.style.display = 'none';
+  }
 }
 
 /* ===== INIT ===== */
