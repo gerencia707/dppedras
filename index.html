@@ -285,7 +285,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v2.8 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v2.9 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -1353,7 +1353,10 @@ function supaRow(k, r){
   if(k === 'matriz'){
     return {
       id: r.id, setor_slug: slugSetor(r.setor),
-      lideres_ideal: r.lideal||1, oper_ideal: r.oideal||4
+      lideres_ideal: r.lideal||1,
+      lid2_ideal: r.lid2ideal||0,
+      lid3_ideal: r.lid3ideal||0,
+      oper_ideal: r.oideal||4
     };
   }
   return r;
@@ -1468,7 +1471,7 @@ function fromSupaCargo(r){
 }
 function fromSupaMatriz(r){
   const SETOR_NOME = {manutencao:'Manutenção',governanca:'Governança',recepcao:'Recepção',ab:'A&B',cozinha:'Cozinha',lazer:'Lazer',administrativo:'Administrativo',reservas:'Reservas'};
-  return { id:r.id, setor:SETOR_NOME[r.setor_slug]||r.setor_slug, lideal:r.lideres_ideal||1, oideal:r.oper_ideal||4 };
+  return { id:r.id, setor:SETOR_NOME[r.setor_slug]||r.setor_slug, lideal:r.lideres_ideal||1, lid2ideal:r.lid2_ideal||0, lid3ideal:r.lid3_ideal||0, oideal:r.oper_ideal||4 };
 }
 
 // Carregar todos os dados do Supabase para o cache ao iniciar
