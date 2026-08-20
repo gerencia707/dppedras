@@ -285,7 +285,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v2.7 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v2.8 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -2023,10 +2023,14 @@ function renderMatriz(){
   const rows=matriz.map(mz=>{
     const atualLid=colabs.filter(c=>c.setor===mz.setor&&c.lider==='sim').length;
     const atualOp=colabs.filter(c=>c.setor===mz.setor&&c.lider!=='sim').length;
+    const lid2ideal=mz.lid2ideal||0;
+    const lid3ideal=mz.lid3ideal||0;
+    const totalIdealSetor=mz.lideal+lid2ideal+lid3ideal+mz.oideal;
+    const totalAtualSetor=atualLid+atualOp;
+    const saldo=totalIdealSetor-totalAtualSetor;
     const saldoLid=mz.lideal-atualLid;
     const saldoOp=mz.oideal-atualOp;
-    const saldo=saldoLid+saldoOp;
-    totalIdealLid+=mz.lideal;totalIdealOp+=mz.oideal;
+    totalIdealLid+=(mz.lideal+lid2ideal+lid3ideal);totalIdealOp+=mz.oideal;
     totalAtualLid+=atualLid;totalAtualOp+=atualOp;
     if(saldo>0)vagasAbertas+=saldo;
     const corSaldo=saldo>0?'neg':saldo<0?'ok':'zero';
@@ -2048,17 +2052,20 @@ function renderMatriz(){
     +'</div>';
   });
 
-  // Linha de total
+  // Linha de total — totalIdealLid já inclui lid2 e lid3
   const saldoTotal=(totalIdealLid+totalIdealOp)-(totalAtualLid+totalAtualOp);
   const corTotal=saldoTotal>0?'neg':saldoTotal<0?'ok':'zero';
-  rows.push(`<div class="matriz-row" style="background:var(--surface2);font-weight:600">
-    <div class="mz-cell"><strong>TOTAL</strong></div>
-    <div class="mz-cell center">${totalIdealLid}</div>
-    <div class="mz-cell center">${totalAtualLid}</div>
-    <div class="mz-cell center">${totalIdealOp}</div>
-    <div class="mz-cell center">${totalAtualOp}</div>
-    <div class="mz-cell mz-diff ${corTotal}">${saldoTotal>0?`-${saldoTotal} vagas`:saldoTotal<0?`+${Math.abs(saldoTotal)} excesso`:'completo'}</div>
-  </div>`);
+  rows.push('<div class="matriz-row" style="background:var(--surface2);font-weight:600">'
+    +'<div class="mz-cell"><strong>TOTAL</strong></div>'
+    +'<div class="mz-cell center">'+totalIdealLid+'</div>'
+    +'<div class="mz-cell center"></div>'
+    +'<div class="mz-cell center"></div>'
+    +'<div class="mz-cell center">'+totalIdealOp+'</div>'
+    +'<div class="mz-cell center">'+totalAtualLid+'</div>'
+    +'<div class="mz-cell center">'+totalAtualOp+'</div>'
+    +'<div class="mz-cell mz-diff '+corTotal+'"><strong>'+(saldoTotal>0?'-'+saldoTotal+' vagas':saldoTotal<0?'+'+Math.abs(saldoTotal)+' excesso':'OK')+'</strong></div>'
+    +'<div class="mz-cell"></div>'
+    +'</div>');
 
   document.getElementById('mz-stats').innerHTML=`
     <div class="sc gv"><div class="sl">Quadro ideal total</div><div class="sv">${totalIdealLid+totalIdealOp}</div><div class="ss">${totalIdealLid} líd. + ${totalIdealOp} oper.</div></div>
