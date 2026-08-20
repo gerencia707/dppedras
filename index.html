@@ -285,7 +285,7 @@ tbody td{padding:10px 12px;font-size:13px;color:var(--text2)}
     <div class="nav-sec">Sistema</div>
     <div class="ni" data-page="configuracoes" onclick="navTo(this)"><span class="ic">◎</span>Configurações</div>
   </div>
-  <div class="sb-footer">Portal DP v2.9 · <span id="sb-hora"></span></div>
+  <div class="sb-footer">Portal DP v3.0 · <span id="sb-hora"></span></div>
 </nav>
 
 <div id="main">
@@ -2105,12 +2105,25 @@ function abrirMatriz(id=null){
   aMo('m-mz');
 }
 function salvMatriz(){
-  const setor=document.getElementById('mz-setor').value;if(!setor){toast('Selecione o setor',true);return;}
-  const M=gD('matriz');const id=document.getElementById('mz-id').value;
-  const obj={id:id||uid(),setor,lideal:parseInt(document.getElementById('mz-lid').value)||0,oideal:parseInt(document.getElementById('mz-op').value)||0};
+  const setor=document.getElementById('mz-setor').value;
+  if(!setor){toast('Selecione o setor',true);return;}
+  const M=gD('matriz');
+  const id=document.getElementById('mz-id').value;
+  const obj={
+    id:id||uid(),
+    setor,
+    lideal: parseInt(document.getElementById('mz-lid').value)||0,
+    lid2ideal: parseInt(document.getElementById('mz-lid2').value)||0,
+    lid3ideal: parseInt(document.getElementById('mz-lid3').value)||0,
+    oideal: parseInt(document.getElementById('mz-op').value)||0
+  };
   if(id){const i=M.findIndex(x=>x.id===id);if(i>-1)M[i]=obj;}
-  else{if(M.find(x=>x.setor===setor)){toast('Setor já existe na matriz',true);return;}M.push(obj);}
-  sD('matriz',M);fMo('m-mz');renderMatriz();toast('Salvo!');
+  else{
+    if(M.find(x=>x.setor===setor)){toast('Setor já existe na matriz',true);return;}
+    M.push(obj);
+  }
+  sD('matriz',M,obj.id);
+  fMo('m-mz');renderMatriz();toast('Salvo!');
 }
 
 /* ===== ADMISSÃO (candidato → colaborador) ===== */
